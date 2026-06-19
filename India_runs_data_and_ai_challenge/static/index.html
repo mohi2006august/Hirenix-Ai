@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="HirenixAI — Intelligent Candidate Discovery & Ranking Dashboard. AI-powered recruitment pipeline with semantic scoring and behavioral signal analysis.">
+    <title>HirenixAI — Intelligent Candidate Ranking Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- ═══════════ HEADER ═══════════ -->
+<header class="header">
+    <div class="container header__inner">
+        <div class="header__brand">
+            <div class="header__logo">H</div>
+            <div>
+                <div class="header__title">HirenixAI</div>
+                <div class="header__subtitle">Intelligent Candidate Discovery & Ranking Engine</div>
+            </div>
+        </div>
+        <div class="header__model-badge">
+            <span class="dot"></span>
+            <span>Powered by all-MiniLM-L6-v2 · 384-dim Embeddings</span>
+        </div>
+    </div>
+</header>
+
+<main class="container">
+
+    <!-- ═══════════ PIPELINE FUNNEL ═══════════ -->
+    <section class="pipeline" id="pipeline">
+        <div class="pipeline__stage">
+            <div class="pipeline__stage-label">Candidates Scanned</div>
+            <div class="pipeline__stage-value" data-target="100000">0</div>
+            <div class="pipeline__stage-desc">Full dataset processed</div>
+        </div>
+        <div class="pipeline__stage">
+            <div class="pipeline__stage-label">Stage 1 · Heuristic Filter</div>
+            <div class="pipeline__stage-value" data-target="2000">0</div>
+            <div class="pipeline__stage-desc">Experience + Title + Skills</div>
+        </div>
+        <div class="pipeline__stage">
+            <div class="pipeline__stage-label">Stage 2 · Semantic Scoring</div>
+            <div class="pipeline__stage-value" data-target="150">0</div>
+            <div class="pipeline__stage-desc">Dense embedding similarity</div>
+        </div>
+        <div class="pipeline__stage">
+            <div class="pipeline__stage-label">Stage 3 · Final Ranked</div>
+            <div class="pipeline__stage-value" data-target="100">0</div>
+            <div class="pipeline__stage-desc">Behavioral signals applied</div>
+        </div>
+    </section>
+
+    <!-- ═══════════ ANALYTICS ═══════════ -->
+    <section class="analytics" id="analytics">
+        <div class="analytics__card">
+            <div class="analytics__card-title">Score Distribution</div>
+            <div id="score-distribution"></div>
+        </div>
+        <div class="analytics__card">
+            <div class="analytics__card-title">Top Skills (Advanced+)</div>
+            <div id="skills-cloud" class="skill-cloud"></div>
+        </div>
+        <div class="analytics__card">
+            <div class="analytics__card-title">Role Categories</div>
+            <div id="role-distribution"></div>
+        </div>
+    </section>
+
+    <!-- ═══════════ TOOLBAR ═══════════ -->
+    <section class="toolbar" id="toolbar">
+        <div class="search-box">
+            <span class="search-box__icon">🔍</span>
+            <input type="text" class="search-box__input" id="search-input"
+                   placeholder="Search by name, title, skills, or candidate ID...">
+        </div>
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="AI/ML Engineer">AI/ML</button>
+        <button class="filter-btn" data-filter="AI Research">Research</button>
+        <button class="filter-btn" data-filter="Data Scientist">Data Sci</button>
+        <button class="filter-btn" data-filter="Search/Ranking">Search</button>
+        <button class="filter-btn" data-filter="NLP Engineer">NLP</button>
+    </section>
+
+    <!-- ═══════════ RESULTS COUNT ═══════════ -->
+    <div class="results-count" id="results-count"></div>
+
+    <!-- ═══════════ CANDIDATES LIST ═══════════ -->
+    <section class="candidates-grid" id="candidates-grid">
+        <div class="loading" id="loading">
+            <div class="loading__spinner"></div>
+            <div class="loading__text">Loading ranked candidates...</div>
+        </div>
+    </section>
+
+</main>
+
+<!-- ═══════════ DETAIL MODAL ═══════════ -->
+<div class="modal-overlay" id="modal-overlay">
+    <div class="modal" id="modal">
+        <div class="modal__header">
+            <div class="modal__header-left">
+                <div class="rank-badge rank-badge--default" id="modal-rank"></div>
+                <div>
+                    <div class="modal__name" id="modal-name"></div>
+                    <div class="modal__headline" id="modal-headline"></div>
+                    <div class="modal__meta" id="modal-meta"></div>
+                </div>
+            </div>
+            <button class="modal__close" id="modal-close">✕</button>
+        </div>
+        <div class="modal__body">
+            <div class="modal__tabs">
+                <button class="modal__tab active" data-tab="why">Why Selected</button>
+                <button class="modal__tab" data-tab="profile">Full Profile</button>
+                <button class="modal__tab" data-tab="career">Career History</button>
+                <button class="modal__tab" data-tab="signals">Behavioral Signals</button>
+                <button class="modal__tab" data-tab="competitors">Competitors</button>
+            </div>
+
+            <div class="tab-panel active" id="tab-why"></div>
+            <div class="tab-panel" id="tab-profile"></div>
+            <div class="tab-panel" id="tab-career"></div>
+            <div class="tab-panel" id="tab-signals"></div>
+            <div class="tab-panel" id="tab-competitors"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════ FOOTER ═══════════ -->
+<footer class="footer">
+    <div class="container">
+        HirenixAI · Built with sentence-transformers & Flask · 
+        <a href="https://github.com/mohi2006august/Hirenix-Ai" target="_blank">GitHub</a>
+    </div>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
