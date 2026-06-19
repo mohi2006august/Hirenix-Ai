@@ -1,104 +1,90 @@
-# 🚀 HirenixAI — Intelligent Candidate Discovery & Ranking Dashboard
+# 🚀 HirenixAI — Architecture, Operations, and Scalability
 
-HirenixAI is a premium, end-to-end recruitment solution designed to discover, filter, and intelligently rank candidates for highly specific roles. It combines a robust **three-stage candidate ranking pipeline** with a state-of-the-art **glassmorphic, dark-themed analytics dashboard** to deliver deep job understanding, semantic matching, and signal integration.
-
----
-
-## 🌟 Key Features
-
-### 🔍 1. Three-Stage AI Ranking Pipeline
-- **Stage 1 (Fast Heuristic Filtering):** Screens candidates using rule-based criteria (e.g. ideal experience ranges of 5-9 years, tech keyword overlaps, current title mapping) and automatically weeds out non-technical roles or impossible/trap candidate records (honeypots).
-- **Stage 2 (Dense Semantic Encoding):** Embeds profile headlines, summaries, and career history using `all-MiniLM-L6-v2` (a fast, CPU-friendly SentenceTransformer model) and ranks candidates by cosine similarity against the job description.
-- **Stage 3 (Behavioral Signal Weighting):** Integrates behavioral metrics (e.g., recruiter response rates, notice periods, active statuses, interview completion rates) to compute the final suitability score.
-
-### 📊 2. Premium Analytics Dashboard
-- **Interactive Pipeline Funnel:** Visually traces candidate numbers as they are refined through each stage ($100,000 \rightarrow 2,000 \rightarrow 150 \rightarrow 100$).
-- **Role Distribution Chart:** Displays candidate alignment across role categories (AI/ML, Research, Data Science, Search/Ranking, NLP).
-- **Expert Skill Cloud:** Showcases the most common expert-level skills among top candidates.
-- **Dynamic Leaderboard:** Interactive list of ranked candidates with search, filtering, and real-time score updates.
-
-### 💡 3. Deep Candidate Context & Reasonings
-- **"Why Selected" Engine:** Auto-generates detailed reasoning cards highlighting score breakdowns, custom strengths, potential concerns, and expert skills.
-- **Role-Based Competitors Analysis:** Dynamic role category grouping that lists side-by-side matches competing for similar titles, complete with direct navigation links.
+HirenixAI is an intelligent, high-performance candidate discovery and ranking system. It features a multi-stage AI pipeline to process, filter, and score candidates, and a responsive web dashboard designed for enterprise recruiter access.
 
 ---
 
-## 🏗️ Project Architecture
+## 🏗️ 1. System Architecture
+
+HirenixAI uses a funnel-based **multi-stage ranking architecture** to balance processing speed and computational depth:
 
 ```
-.
-├── .gitignore
-├── README.md                              # This file
-└── India_runs_data_and_ai_challenge/      # Core project folder
-    ├── app.py                             # Flask Web Server / API Backend
-    ├── ranker.py                          # Pipeline Orchestration Script
-    ├── requirements.txt                   # Python Dependencies
-    ├── candidate_schema.json              # Structural reference for candidate metadata
-    ├── pipeline/
-    │   ├── stage1_filter.py               # Fast heuristic checks & honeypot removal
-    │   ├── stage2_semantic.py             # SentenceTransformer semantic similarity
-    │   └── stage3_signals.py              # Behavioral weights & deterministic explanation
-    └── static/                            # Dashboard Frontend
-        ├── index.html                     # HTML structure and layouts
-        ├── style.css                      # Premium glassmorphic styling and transitions
-        └── app.js                         # Dynamic rendering and modal handling
+[ Raw Candidate Pool (100,000+) ]
+               │
+               ▼
+┌──────────────────────────────┐
+│  Stage 1: Heuristic Filter   │  <-- Fast Regex & Heuristic Checks
+└──────────────┬───────────────┘      O(1) memory, rules-based
+               │  (Reduces to ~2,000)
+               ▼
+┌──────────────────────────────┐
+│  Stage 2: Semantic Matching  │  <-- Dense Embeddings (all-MiniLM-L6-v2)
+└──────────────┬───────────────┘      Cosine Similarity on CPU/GPU
+               │  (Reduces to ~150)
+               ▼
+┌──────────────────────────────┐
+│  Stage 3: Signal Adjustment   │  <-- Behavioral Weighting Multipliers
+└──────────────┬───────────────┘      Deterministic Reasoning Engine
+               │  (Reduces to exactly 100)
+               ▼
+┌──────────────────────────────┐
+│     Final Ranked List        │  <-- Web Dashboard UI / Flask API
+└──────────────────────────────┘
 ```
 
 ---
 
-## 🛠️ Tech Stack
+## ⚙️ 2. How It Works
 
-- **Backend:** Python, Flask, PyTorch, SentenceTransformers (`all-MiniLM-L6-v2`), Pandas, NumPy
-- **Frontend:** Vanilla HTML5, CSS3 (Custom Glassmorphism, animations), Modern JavaScript (ES6+), FontAwesome
-- **Data:** JSON Lines (`.jsonl`) processing
+### **Stage 1: Fast Heuristic Filter (stage1_filter.py)**
+- **Streaming Chunks:** Streams candidate entries from a JSON Lines (`.jsonl`) file one line at a time to prevent high memory usage.
+- **Trap/Honeypot Rejection:** Instantly discards non-technical titles (e.g. marketing, accountant) and candidates with extreme outliers in years of experience (e.g. >30 years) to prevent honeypot profiles from cluttering the pipeline.
+- **Base Scoring:** Awards points for ideal experience ranges (5–9 years), relevant titles (AI/ML, Data Science, Search/Ranking), and high recruiter response rates.
 
----
+### **Stage 2: Dense Semantic Matching (stage2_semantic.py)**
+- **Document Construction:** Dynamically builds a textual representation of each candidate's profile, including headline, summary, skills list, and recent career history.
+- **Sentence Embedding:** Embeds the job description text and candidate document text into a 384-dimensional dense vector space using `all-MiniLM-L6-v2`.
+- **Similarity Scoring:** Calculates the cosine similarity between the job description vector and each candidate vector to determine their semantic fit.
 
-## 🚀 Getting Started
-
-### 📋 Prerequisites
-Ensure you have Python 3.8+ installed on your system.
-
-### 📥 1. Installation
-1. Clone this repository and navigate to the project directory:
-   ```bash
-   cd India_runs_data_and_ai_challenge
-   ```
-2. Install the required Python packages:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-### ⚙️ 2. Run the Candidate Ranking Pipeline
-To run the three-stage pipeline and generate the final `submission.csv` leaderboard:
-```bash
-python ranker.py --candidates path/to/candidates.jsonl --out submission.csv
-```
-> **Note:** The `candidates.jsonl` dataset file is excluded from Git tracking due to file size limits. Place your dataset file locally before running.
-
-### 🖥️ 3. Start the Analytics Dashboard
-To launch the Flask web application locally:
-```bash
-python app.py
-```
-Open [http://localhost:5000](http://localhost:5000) in your web browser to interact with the dashboard.
+### **Stage 3: Behavioral Signal Integration (stage3_signals.py)**
+- **Signal Multipliers:** Modifies the semantic score by applying weight multipliers based on behavioral attributes:
+  - **Favorable Notice Period ($\le 30$ days):** `+5%` score bonus.
+  - **High Response Rate ($>80\%$):** `+10%` score bonus.
+  - **Open-To-Work Flag:** `+5%` score bonus.
+  - **Long Notice Period ($>60$ days):** `-10%` penalty.
+  - **Low Response Rate ($<20\%$):** `-20%` penalty.
+  - **Low Interview Completion Rate ($<50\%$):** `-30%` penalty.
+- **Reasoning Engine:** Automatically writes a concise, contextual explanation explaining why the candidate was selected or highlighted (strengths, notice period availability, and core skills).
 
 ---
 
-## ⚙️ How the Pipeline Works
+## 📈 3. Scalability Analysis
 
-### **Stage 1: Fast Heuristic Filter**
-- Processes candidates in chunks for speed and low memory usage.
-- Uses regex flags to eliminate non-matching occupations (e.g. marketing, accountants).
-- Awards points for ideal experience ranges (5–9 years) and title keywords.
+The system is designed to scale along two separate vectors: candidate data volume and concurrent recruiter/user traffic.
 
-### **Stage 2: Dense Semantic Matching**
-- Considers candidate summaries, headlines, and most recent career histories.
-- Encodes candidate details alongside the extracted JD targets.
-- Performs cosine similarity comparisons using `all-MiniLM-L6-v2` embeddings.
+### **Candidate Pool Scalability (Data Layer)**
+- **Current Capability (Up to 100,000+ Candidates):** 
+  The python-based pipeline operates within a **5-minute time limit** and fits in **under 16 GB of CPU RAM**. Stage 1 runs in seconds on 100K profiles because it reads and filters candidate records as a stream.
+- **Enterprise Scaling (Up to 10,000,000+ Candidates):**
+  To scale to millions of candidates, we bypass real-time embedding generation of candidate profiles:
+  1. **Pre-computed Embeddings:** Compute candidate profile vectors asynchronously when a candidate profile is updated or created.
+  2. **Vector Databases:** Index candidate embedding vectors in a vector database (e.g., Qdrant, Milvus, or Pinecone) using HNSW (Hierarchical Navigable Small World) indices.
+  3. **Sub-second Retrieval:** Querying the database with the embedded job description returns the top-K nearest neighbors in **milliseconds**, making Stage 2 scale at $O(\log N)$ instead of $O(N)$.
 
-### **Stage 3: Behavioral Signal Integration**
-- Applies scaling factors to semantic scores based on engagement criteria.
-- **Positive boosts:** Notice periods $\le$ 30 days (+5%), high recruiter response rate (+10%), active open-to-work flag (+5%).
-- **Negative penalties:** Extended notice period (-10%), low response rate (-20%), low interview completion rates (-30%).
-- Automatically writes a concise, tailored reasoning string for each candidate.
+### **User Traffic Scalability (Concurrent Recruiters)**
+- **Current Capability (Local Recruiter Workstation):** 
+  The built-in Flask development server is single-threaded and handles a single recruiter looking up and scanning dashboards locally.
+- **Enterprise Scaling (Up to 10,000+ Concurrent Recruiters):**
+  To handle thousands of concurrent active recruiters accessing candidate profiles and ranking dashboards:
+  1. **Production WSGI Server:** Deploy the Flask API backend using Gunicorn or UWSGI behind an Nginx reverse proxy.
+  2. **Result Caching (Redis):** Cache candidate profile dashboards and ranks in-memory. Since job descriptions and candidate rankings do not change second-to-second, Redis can serve API requests in $<5\text{ms}$ with $O(1)$ read performance.
+  3. **Load Balancing & Horizontal Scaling:** Run multiple stateless containerized instances of the Flask backend inside a Kubernetes cluster, scaling instances dynamically in response to request volume.
+
+---
+
+## 🛠️ 4. Tech Stack
+
+- **AI/ML Layer:** PyTorch, SentenceTransformers (`all-MiniLM-L6-v2`), Scikit-learn (Cosine Similarity)
+- **Data Engineering:** Python, Pandas, NumPy, JSON Lines
+- **API & Backend:** Flask (REST APIs, Static File Serving)
+- **Web Frontend:** Vanilla HTML5, Vanilla CSS3 (Glassmorphic dark design, micro-animations, flexbox/grid layout), JavaScript (ES6+, DOM rendering, asynchronous fetch APIs)
