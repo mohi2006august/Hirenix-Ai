@@ -19,9 +19,21 @@
                 <div class="header__subtitle">Intelligent Candidate Discovery & Ranking Engine</div>
             </div>
         </div>
-        <div class="header__model-badge">
-            <span class="dot"></span>
-            <span>Powered by all-MiniLM-L6-v2 · 384-dim Embeddings</span>
+        <div class="header__right">
+            <div class="theme-switcher">
+                <span class="theme-switcher__label">Accent:</span>
+                <div class="theme-swatches">
+                    <button class="theme-swatch active" data-theme="indigo" style="background: #6366f1;" title="Indigo Theme"></button>
+                    <button class="theme-swatch" data-theme="emerald" style="background: #10b981;" title="Emerald Theme"></button>
+                    <button class="theme-swatch" data-theme="cyan" style="background: #22d3ee;" title="Cyan Theme"></button>
+                    <button class="theme-swatch" data-theme="rose" style="background: #ec4899;" title="Rose Theme"></button>
+                    <button class="theme-swatch" data-theme="amber" style="background: #f59e0b;" title="Amber Theme"></button>
+                </div>
+            </div>
+            <div class="header__model-badge">
+                <span class="dot"></span>
+                <span>Powered by all-MiniLM-L6-v2 · 384-dim Embeddings</span>
+            </div>
         </div>
     </div>
 </header>
@@ -75,12 +87,25 @@
             <input type="text" class="search-box__input" id="search-input"
                    placeholder="Search by name, title, skills, or candidate ID...">
         </div>
-        <button class="filter-btn active" data-filter="all">All</button>
-        <button class="filter-btn" data-filter="AI/ML Engineer">AI/ML</button>
-        <button class="filter-btn" data-filter="AI Research">Research</button>
-        <button class="filter-btn" data-filter="Data Scientist">Data Sci</button>
-        <button class="filter-btn" data-filter="Search/Ranking">Search</button>
-        <button class="filter-btn" data-filter="NLP Engineer">NLP</button>
+        <div class="toolbar__filters">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="AI/ML Engineer">AI/ML</button>
+            <button class="filter-btn" data-filter="AI Research">Research</button>
+            <button class="filter-btn" data-filter="Data Scientist">Data Sci</button>
+            <button class="filter-btn" data-filter="Search/Ranking">Search</button>
+            <button class="filter-btn" data-filter="NLP Engineer">NLP</button>
+        </div>
+        <div class="sort-box">
+            <span class="sort-box__label">Sort:</span>
+            <select class="sort-box__select" id="sort-select">
+                <option value="rank-asc">Rank (Low to High)</option>
+                <option value="score-desc">Semantic Fit (High to Low)</option>
+                <option value="experience-desc">Experience (Highest First)</option>
+                <option value="experience-asc">Experience (Lowest First)</option>
+                <option value="notice-asc">Notice Period (Shortest First)</option>
+                <option value="name-asc">Name (A-Z)</option>
+            </select>
+        </div>
     </section>
 
     <!-- ═══════════ RESULTS COUNT ═══════════ -->
@@ -124,6 +149,35 @@
             <div class="tab-panel" id="tab-career"></div>
             <div class="tab-panel" id="tab-signals"></div>
             <div class="tab-panel" id="tab-competitors"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════ FLOATING COMPARE DRAWER ═══════════ -->
+<div class="compare-drawer" id="compare-drawer">
+    <div class="compare-drawer__inner">
+        <div class="compare-drawer__info">
+            <span class="compare-drawer__count" id="compare-count">0</span> candidates selected for comparison
+        </div>
+        <div class="compare-drawer__actions">
+            <button class="compare-btn compare-btn--clear" id="compare-clear">Clear</button>
+            <button class="compare-btn compare-btn--primary" id="compare-trigger">Compare Side-by-Side</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════ COMPARE MODAL ═══════════ -->
+<div class="modal-overlay" id="compare-modal-overlay">
+    <div class="modal modal--compare" id="compare-modal">
+        <div class="modal__header">
+            <div class="modal__header-left">
+                <div class="modal__name">Candidate Comparison Matrix</div>
+                <div class="modal__headline">Side-by-side performance, experience, and behavioral alignment evaluation</div>
+            </div>
+            <button class="modal__close" id="compare-modal-close">✕</button>
+        </div>
+        <div class="modal__body modal__body--compare" id="compare-modal-body">
+            <!-- Will be dynamically populated by JS -->
         </div>
     </div>
 </div>

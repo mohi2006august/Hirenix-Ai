@@ -8,6 +8,8 @@ let allCandidates = [];
 let statsData = {};
 let currentFilter = 'all';
 let searchQuery = '';
+let currentSort = 'rank-asc';
+let compareList = new Set();
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -16,6 +18,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupFilters();
     setupModal();
     animateCounters();
+    setupThemes();
+    setupSorting();
+    setupCompare();
 });
 
 // ── Data Loading ─────────────────────────────────────────────────────────────
@@ -88,8 +93,12 @@ function renderCandidates(candidates) {
         const scorePercent = ((c.score / 1.0) * 100).toFixed(0);
         const skillsHtml = c.top_skills.slice(0, 3).map(s => `<span class="skill-pill">${s}</span>`).join('');
 
+        const isChecked = compareList.has(c.candidate_id) ? 'checked' : '';
         return `
             <div class="candidate-row" data-id="${c.candidate_id}" style="animation-delay: ${i * 0.03}s">
+                <div class="compare-checkbox-container" onclick="event.stopPropagation()">
+                    <input type="checkbox" class="compare-checkbox" value="${c.candidate_id}" ${isChecked}>
+                </div>
                 <div class="rank-badge rank-badge--${rankClass}">${c.rank}</div>
                 <div>
                     <div class="candidate-info__name">${c.name}</div>
@@ -115,6 +124,18 @@ function renderCandidates(candidates) {
     // Add click handlers
     grid.querySelectorAll('.candidate-row').forEach(row => {
         row.addEventListener('click', () => openModal(row.dataset.id));
+    });
+
+    // Add checkbox handlers
+    grid.querySelectorAll('.compare-checkbox').forEach(cb => {
+        cb.addEventListener('click', (e) => e.stopPropagation());
+        cb.addEventListener('change', (e) => {
+            e.stopPropagation();
+            const id = e.target.value;
+            if (e.target.checked) compareList.add(id);
+            else compareList.delete(id);
+            updateCompareDrawer();
+        });
     });
 }
 
@@ -195,6 +216,17 @@ function applyFilters() {
             return haystack.includes(searchQuery);
         });
     }
+
+    filtered.sort((a, b) => {
+        switch (currentSort) {
+            case 'rank-asc': return a.rank - b.rank;
+            case 'score-desc': return b.score - a.score;
+            case 'exp-desc': return b.years_of_experience - a.years_of_experience;
+            case 'notice-asc': return (a.notice_period_days || 999) - (b.notice_period_days || 999);
+            case 'name-asc': return a.name.localeCompare(b.name);
+            default: return a.rank - b.rank;
+        }
+    });
 
     renderCandidates(filtered);
 }
@@ -464,4 +496,157 @@ function renderGauge(label, value, fillPct) {
             </div>
         </div>
     `;
+}
+
+// ── Theme Customizer ─────────────────────────────────────────────────────────
+function setupThemes() {
+    const swatches = document.querySelectorAll('.theme-swatch');
+    swatches.forEach(swatch => {
+        swatch.addEventListener('click', () => {
+            swatches.forEach(s => s.classList.remove('active'));
+            swatch.classList.add('active');
+            const theme = swatch.dataset.theme;
+            document.body.className = `theme-${theme}`;
+        });
+    });
+}
+
+// ── Sorting ──────────────────────────────────────────────────────────────────
+function setupSorting() {
+    const sortSelect = document.getElementById('sort-select');
+    if(sortSelect) {
+        sortSelect.addEventListener('change', (e) => {
+            currentSort = e.target.value;
+            applyFilters();
+        });
+    }
+}
+
+// ── Candidate Comparison ─────────────────────────────────────────────────────
+function setupCompare() {
+    const clearBtn = document.getElementById('compare-clear');
+    const compareBtn = document.getElementById('compare-trigger');
+    
+    if(clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            compareList.clear();
+            applyFilters(); // re-render checkboxes
+            updateCompareDrawer();
+        });
+    }
+    
+    if(compareBtn) {
+        compareBtn.addEventListener('click', openCompareModal);
+    }
+}
+
+function updateCompareDrawer() {
+    const drawer = document.getElementById('compare-drawer');
+    const countEl = document.getElementById('compare-count');
+    if (!drawer) return;
+    
+    if (compareList.size > 0) {
+        countEl.textContent = compareList.size;
+        drawer.classList.add('active');
+    } else {
+        drawer.classList.remove('active');
+    }
+}
+
+async function openCompareModal() {
+    if (compareList.size === 0) return;
+    
+    const overlay = document.getElementById('modal-overlay');
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    
+    document.querySelectorAll('.modal__tab').forEach(t => t.style.display = 'none');
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    
+    const panel = document.getElementById('tab-why');
+    panel.classList.add('active');
+    panel.innerHTML = '<div class="loading"><div class="loading__spinner"></div></div>';
+    
+    document.getElementById('modal-rank').style.display = 'none';
+    document.getElementById('modal-name').textContent = 'Candidate Comparison';
+    document.getElementById('modal-headline').textContent = `Comparing ${compareList.size} candidates`;
+    document.getElementById('modal-meta').innerHTML = '';
+    
+    try {
+        const candidatesToCompare = [];
+        for (const id of compareList) {
+            const res = await fetch(`/api/candidates/${id}`);
+            candidatesToCompare.push(await res.json());
+        }
+        
+        renderCompareMatrix(candidatesToCompare);
+    } catch (err) {
+        panel.innerHTML = '<div class="loading__text" style="color:#ef4444;">Failed to load comparison data.</div>';
+    }
+}
+
+function renderCompareMatrix(candidates) {
+    const panel = document.getElementById('tab-why');
+    
+    const rows = [
+        { label: '', render: c => `
+            <div class="compare-card-header">
+                <div class="rank-badge rank-badge--${c.rank <= 3 ? 'gold' : c.rank <= 10 ? 'silver' : 'default'}">#${c.rank}</div>
+                <div class="name">${c.profile?.name || 'Unknown'}</div>
+                <div class="title">${c.profile?.headline || ''}</div>
+                <div style="font-size:12px; color:var(--text-tertiary)">${c.profile?.location || ''}</div>
+            </div>
+        ` },
+        { label: 'Semantic Match', render: c => `<div class="compare-score-large">${(c.score || 0).toFixed(4)}</div>` },
+        { label: 'Experience', render: c => `<strong>${(c.profile?.years_of_experience || 0).toFixed(1)} yrs</strong><br><span style="font-size:12px; color:var(--text-tertiary)">${c.why_selected?.score_breakdown?.experience_fit || ''}</span>` },
+        { label: 'Availability', render: c => `<strong>${c.why_selected?.score_breakdown?.availability || 'N/A'}</strong><br><span style="font-size:12px; color:var(--text-tertiary)">${c.why_selected?.score_breakdown?.notice_period_days || 0} days</span>` },
+        { label: 'Top Skills', render: c => `
+            <div class="skill-cloud" style="gap:4px">
+                ${(c.profile?.top_skills || []).slice(0, 5).map(s => `<span class="skill-cloud__tag">${s}</span>`).join('')}
+            </div>
+        ` },
+        { label: 'Strengths', render: c => `
+            <ul style="padding-left:16px; margin:0; font-size:13px; color:var(--text-secondary)">
+                ${(c.why_selected?.strengths || []).map(s => `<li style="margin-bottom:4px">${s}</li>`).join('')}
+            </ul>
+        ` },
+        { label: 'Concerns', render: c => `
+            <ul style="padding-left:16px; margin:0; font-size:13px; color:var(--text-secondary)">
+                ${(c.why_selected?.concerns || []).map(s => `<li style="margin-bottom:4px">${s}</li>`).join('')}
+            </ul>
+        ` }
+    ];
+    
+    let html = `
+        <div class="modal__body--compare">
+            <table class="compare-table">
+                <thead>
+                    <tr>
+                        <th style="width:150px">Metric</th>
+                        ${candidates.map(c => `<th class="compare-column-header"></th>`).join('')}
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows.map(row => `
+                        <tr>
+                            <td style="font-weight:600; color:var(--text-secondary)">${row.label}</td>
+                            ${candidates.map(c => `<td>${row.render(c)}</td>`).join('')}
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    panel.innerHTML = html;
+    
+    // Restore tabs logic on modal close
+    const overlay = document.getElementById('modal-overlay');
+    const closeHandler = () => {
+        document.querySelectorAll('.modal__tab').forEach(t => t.style.display = 'inline-block');
+        document.getElementById('modal-rank').style.display = 'flex';
+        overlay.removeEventListener('click', closeHandler);
+    };
+    overlay.addEventListener('click', closeHandler);
+    document.getElementById('modal-close').addEventListener('click', closeHandler, { once: true });
 }
