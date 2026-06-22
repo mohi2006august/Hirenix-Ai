@@ -1,0 +1,86 @@
+# Redrob Hackathon — Submission Metadata Template
+#
+# Copy this file to your repo root as `submission_metadata.yaml` and fill it in.
+# The fields here should match what you submit via the portal at upload time.
+# Stage 3 review uses this file to verify your portal metadata.
+
+# ============================================================================
+# Team identity
+# ============================================================================
+team_name: "HirenixAI"  # Used in leaderboard and announcements
+
+primary_contact:
+  name: "Mohiuddin"
+  email: "mohiuddin@example.com"   # Used for all organizer communication
+  phone: "+91-0000000000"        # Used for top-50 / top-10 outreach
+
+team_members:
+  - name: "Mohiuddin"
+    email: "mohiuddin@example.com"
+    role: "ML Engineer"          # Optional, e.g. "Team Lead", "Backend", "Data"
+
+# ============================================================================
+# Code and reproducibility
+# ============================================================================
+github_repo: "https://github.com/mohi2006august/Hirenix-Ai"
+# Required. Must be reachable. Private repos OK if you can grant organizer
+# access at Stage 3 (the email to add will be communicated then).
+
+sandbox_link: "https://huggingface.co/spaces/YOUR_USERNAME/redrob-ranker"
+# Required. A working hosted environment where the ranker can be run on a small
+# candidate sample. See Section 10.5 of submission_spec.md for acceptable
+# platforms (HuggingFace Spaces, Streamlit Cloud, Replit, Colab, Docker, Binder).
+
+reproduce_command: "python ranker.py --candidates ./sample_candidates.json --out ./submission.csv --jd-config ./job_config.json"
+# The single command that produces submission.csv from candidates.jsonl.
+# Should run end-to-end within 5 minutes on CPU with 16GB RAM and no network.
+
+# ============================================================================
+# Compute environment
+# ============================================================================
+compute:
+  platform: "Local Windows box"                 # Or: "AWS EC2 c5.4xlarge", "Local Linux box", etc.
+  cpu_cores: 8                                  # Number of CPU cores used
+  ram_gb: 16                                    # Available RAM in GB
+  python_version: "3.11"                        # python --version
+  os: "Windows 11"                              # Or "Ubuntu 22.04 LTS", etc.
+  uses_gpu_for_inference: false                 # Must be false — see compute constraints
+  has_network_during_ranking: false             # Must be false — no API calls during ranking
+  pre_computation_required: false               # true if you pre-compute embeddings or train models offline
+  pre_computation_time_minutes: 0               # Approximate, if applicable
+
+# ============================================================================
+# AI tools declaration
+# ============================================================================
+# Transparency only — declared use is NOT penalized. Be honest. Stage 5 interview
+# may verify these declarations against your code; declarations that contradict
+# your code or your interview are flagged.
+ai_tools_used:
+  - "Claude"        # e.g. for architecture discussion, code review
+  - "Gemini"
+
+ai_usage_summary: |
+  Used Gemini and Claude for architectural discussion, code writing, and generating the web dashboard interface. 
+  No candidate data was fed to any LLM during the ranking process itself (it runs locally using SentenceTransformers).
+
+# ============================================================================
+# Approach summary (optional but recommended)
+# ============================================================================
+methodology_summary: |
+  Three-stage pipeline designed to detect honeypots and deeply understand candidate semantic fit.
+  Stage 1 uses a heuristic filter that validates skill trust (proficiency x endorsements x duration) 
+  and strictly verifies technical career history to reject honeypot profiles (e.g., Accountants claiming AI skills).
+  Stage 2 uses all-MiniLM-L6-v2 to embed a rich candidate document (combining weighted recent career history, 
+  education, and top skills) for cosine similarity matching against the JD.
+  Stage 3 applies deep signal integration, boosting candidates with relevant education tiers, high GitHub activity, 
+  verified trust signals, and skill assessments, while penalizing job hoppers and poor availability.
+
+# ============================================================================
+# Declarations
+# ============================================================================
+declarations:
+  read_submission_spec: true        # I have read submission_spec.md in full
+  code_is_original_work: true       # My code is my team's original work (using AI as a tool is fine)
+  no_collusion: true                # I have not coordinated my submission with other teams
+  honeypot_check_done: true         # OPTIONAL — set true if you explicitly checked for honeypots in your ranking
+  reproduction_tested: true         # I have tested that my reproduce_command runs end-to-end

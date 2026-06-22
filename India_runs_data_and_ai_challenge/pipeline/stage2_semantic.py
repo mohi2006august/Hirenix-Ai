@@ -4,7 +4,6 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 
-# Default JD text used when no config is provided
 DEFAULT_JD_TEXT = (
     "Senior AI Engineer with 5-9 years of experience. "
     "Deep technical depth in modern ML systems: embeddings, retrieval, ranking, LLMs, fine-tuning. "
@@ -20,16 +19,12 @@ def semantic_rank(candidates: List[Dict[Any, Any]], jd_text: Optional[str] = Non
     Uses an extremely fast local transformer model to embed their career histories
     and calculates cosine similarity against the JD text.
     Returns the top candidates based on semantic fit.
-    
-    Args:
-        candidates: List of candidate dicts from Stage 1.
-        jd_text: The job description text to match against. Uses default if None.
-        top_k: Number of top candidates to return.
     """
-    # Using a fast, lightweight model that fits easily in CPU memory
+    if not candidates:
+        return []
+
     model = SentenceTransformer('all-MiniLM-L6-v2')
     
-    # Use provided JD text or fall back to default
     if not jd_text or not jd_text.strip():
         jd_text = DEFAULT_JD_TEXT
     
@@ -43,30 +38,55 @@ def semantic_rank(candidates: List[Dict[Any, Any]], jd_text: Optional[str] = Non
         headline = profile.get('headline', '')
         summary = profile.get('summary', '')
         
+        # 1. Career History with Recency Weighting
         career_hist = c.get('career_history', [])
-        # Only take recent roles to keep text short
         roles = []
-        for job in career_hist[:2]:
-            roles.append(f"{job.get('title', '')} at {job.get('company', '')}: {job.get('description', '')}")
+        for i, job in enumerate(career_hist[:3]):
+            # Give more textual space/weight to the most recent role by repeating key parts
+            # or just making sure it's prominent. We'll just concatenate but ensure order.
+            weight_prefix = "CURRENT/RECENT ROLE: " if i == 0 else "PREVIOUS ROLE: "
+            roles.append(f"{weight_prefix}{job.get('title', '')} at {job.get('company', '')}: {job.get('description', '')}")
             
+        # 2. Skills (Filtering for quality)
         skills = c.get('skills', [])
-        top_skills = ", ".join([s['name'] for s in skills if s.get('proficiency') in ('intermediate', 'advanced', 'expert')])
+        top_skills = ", ".join([s['name'] for s in skills if s.get('proficiency') in ('advanced', 'expert')])
         
-        # Construct the candidate document
-        doc = f"{headline}. {summary}. Skills: {top_skills}. Experience: {' '.join(roles)}"
+        # 3. Education & Certifications
+        education = c.get('education', [])
+        ed_text = ", ".join([f"{e.get('degree', '')} in {e.get('field_of_study', '')}" for e in education])
+        
+        certs = c.get('certifications', [])
+        cert_text = ", ".join([cert.get('name', '') for cert in certs])
+        
+        # 4. Construct Rich Candidate Document
+        doc_parts = [
+            f"Headline: {headline}.",
+            f"Summary: {summary}.",
+            f"Expert Skills: {top_skills}.",
+            f"Education: {ed_text}.",
+            f"Certifications: {cert_text}.",
+            f"Experience: {' '.join(roles)}"
+        ]
+        
+        doc = " ".join(filter(None, doc_parts))
         texts_to_embed.append(doc)
         
     print(f"Encoding {len(texts_to_embed)} candidates...")
+    
+    # Handle empty list case gracefully just in case
+    if not texts_to_embed:
+        return []
+
     candidate_embeddings = model.encode(texts_to_embed, show_progress_bar=True, batch_size=32)
     
-    # Calculate similarities
-    similarities = cosine_similarity([jd_embedding], candidate_embeddings)[0]
+    # Reshape jd_embedding to 2D array for cosine_similarity
+    jd_embedding_2d = jd_embedding.reshape(1, -1)
     
-    # Attach scores
+    similarities = cosine_similarity(jd_embedding_2d, candidate_embeddings)[0]
+    
     for i, c in enumerate(candidates):
         c['_semantic_score'] = similarities[i]
         
-    # Sort by semantic score descending
     candidates.sort(key=lambda x: x['_semantic_score'], reverse=True)
     
     return candidates[:top_k]
