@@ -20,6 +20,9 @@
             </div>
         </div>
         <div class="header__right">
+            <button class="config-toggle-btn" id="config-toggle" title="Configure Job & Pipeline">
+                ⚙️ Configure
+            </button>
             <div class="theme-switcher">
                 <span class="theme-switcher__label">Accent:</span>
                 <div class="theme-swatches">
@@ -40,26 +43,140 @@
 
 <main class="container">
 
+    <!-- ═══════════ CONFIG PANEL (Collapsible) ═══════════ -->
+    <section class="config-panel" id="config-panel" style="display: none;">
+        <div class="config-panel__header">
+            <h2 class="config-panel__title">🎯 Job Configuration & Pipeline Settings</h2>
+            <button class="config-panel__close" id="config-close">✕</button>
+        </div>
+
+        <div class="config-panel__body">
+            <!-- Job Description Section -->
+            <div class="config-section">
+                <div class="config-section__title">📋 Job Description</div>
+                <div class="config-row">
+                    <div class="config-field">
+                        <label for="cfg-job-title">Job Title</label>
+                        <input type="text" id="cfg-job-title" class="config-input" placeholder="e.g. Senior AI/ML Engineer">
+                    </div>
+                </div>
+                <div class="config-row">
+                    <div class="config-field config-field--full">
+                        <label for="cfg-job-desc">Full Job Description</label>
+                        <textarea id="cfg-job-desc" class="config-textarea" rows="5" placeholder="Enter the complete job description text that candidates will be semantically matched against..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Experience & Skills Section -->
+            <div class="config-section">
+                <div class="config-section__title">🛠️ Requirements</div>
+                <div class="config-row">
+                    <div class="config-field">
+                        <label>Experience Range (Years)</label>
+                        <div class="config-range-group">
+                            <input type="number" id="cfg-exp-min" class="config-input config-input--small" min="0" max="50" placeholder="Min">
+                            <span class="config-range-sep">to</span>
+                            <input type="number" id="cfg-exp-max" class="config-input config-input--small" min="0" max="50" placeholder="Max">
+                        </div>
+                    </div>
+                </div>
+                <div class="config-row">
+                    <div class="config-field config-field--full">
+                        <label for="cfg-skills">Required Skills <span class="config-hint">(comma-separated)</span></label>
+                        <textarea id="cfg-skills" class="config-textarea" rows="3" placeholder="e.g. Python, PyTorch, embeddings, retrieval, LLMs, FAISS, NLP"></textarea>
+                    </div>
+                </div>
+                <div class="config-row">
+                    <div class="config-field config-field--full">
+                        <label for="cfg-preferred-titles">Preferred Titles <span class="config-hint">(comma-separated)</span></label>
+                        <textarea id="cfg-preferred-titles" class="config-textarea" rows="2" placeholder="e.g. ai engineer, ml engineer, data scientist, nlp engineer"></textarea>
+                    </div>
+                </div>
+                <div class="config-row">
+                    <div class="config-field config-field--full">
+                        <label for="cfg-reject-titles">Reject Titles <span class="config-hint">(comma-separated)</span></label>
+                        <input type="text" id="cfg-reject-titles" class="config-input" placeholder="e.g. marketing, accountant, customer support">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pipeline Settings -->
+            <div class="config-section">
+                <div class="config-section__title">⚡ Pipeline Settings</div>
+                <div class="config-row config-row--triple">
+                    <div class="config-field">
+                        <label for="cfg-stage1-k">Stage 1 Top-K</label>
+                        <input type="number" id="cfg-stage1-k" class="config-input config-input--small" min="100" max="50000" placeholder="2000">
+                    </div>
+                    <div class="config-field">
+                        <label for="cfg-stage2-k">Stage 2 Top-K</label>
+                        <input type="number" id="cfg-stage2-k" class="config-input config-input--small" min="10" max="5000" placeholder="150">
+                    </div>
+                    <div class="config-field">
+                        <label for="cfg-final-k">Final Top-K</label>
+                        <input type="number" id="cfg-final-k" class="config-input config-input--small" min="10" max="1000" placeholder="100">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Upload Section -->
+            <div class="config-section">
+                <div class="config-section__title">📂 Candidate Data</div>
+                <div class="config-row">
+                    <div class="config-field">
+                        <label>Upload Candidates File (.jsonl)</label>
+                        <div class="upload-area" id="upload-area">
+                            <input type="file" id="cfg-upload-file" accept=".jsonl,.json,.ndjson" style="display:none">
+                            <button class="upload-btn" id="upload-btn">📤 Choose File</button>
+                            <span class="upload-status" id="upload-status">No file selected</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="config-actions">
+                <button class="config-action-btn config-action-btn--save" id="config-save">💾 Save Config</button>
+                <button class="config-action-btn config-action-btn--run" id="config-run-pipeline">🚀 Run Pipeline</button>
+            </div>
+        </div>
+
+        <!-- Pipeline Progress -->
+        <div class="pipeline-progress" id="pipeline-progress" style="display: none;">
+            <div class="pipeline-progress__bar">
+                <div class="pipeline-progress__fill" id="pipeline-progress-fill"></div>
+            </div>
+            <div class="pipeline-progress__text" id="pipeline-progress-text">Starting pipeline...</div>
+        </div>
+    </section>
+
+    <!-- ═══════════ ACTIVE JOB BANNER ═══════════ -->
+    <div class="active-job-banner" id="active-job-banner">
+        <span class="active-job-banner__label">Active Job:</span>
+        <span class="active-job-banner__title" id="active-job-title">Loading...</span>
+    </div>
+
     <!-- ═══════════ PIPELINE FUNNEL ═══════════ -->
     <section class="pipeline" id="pipeline">
         <div class="pipeline__stage">
             <div class="pipeline__stage-label">Candidates Scanned</div>
-            <div class="pipeline__stage-value" data-target="100000">0</div>
+            <div class="pipeline__stage-value" id="counter-scanned" data-target="0">0</div>
             <div class="pipeline__stage-desc">Full dataset processed</div>
         </div>
         <div class="pipeline__stage">
             <div class="pipeline__stage-label">Stage 1 · Heuristic Filter</div>
-            <div class="pipeline__stage-value" data-target="2000">0</div>
+            <div class="pipeline__stage-value" id="counter-stage1" data-target="0">0</div>
             <div class="pipeline__stage-desc">Experience + Title + Skills</div>
         </div>
         <div class="pipeline__stage">
             <div class="pipeline__stage-label">Stage 2 · Semantic Scoring</div>
-            <div class="pipeline__stage-value" data-target="150">0</div>
+            <div class="pipeline__stage-value" id="counter-stage2" data-target="0">0</div>
             <div class="pipeline__stage-desc">Dense embedding similarity</div>
         </div>
         <div class="pipeline__stage">
             <div class="pipeline__stage-label">Stage 3 · Final Ranked</div>
-            <div class="pipeline__stage-value" data-target="100">0</div>
+            <div class="pipeline__stage-value" id="counter-final" data-target="0">0</div>
             <div class="pipeline__stage-desc">Behavioral signals applied</div>
         </div>
     </section>
@@ -87,13 +204,9 @@
             <input type="text" class="search-box__input" id="search-input"
                    placeholder="Search by name, title, skills, or candidate ID...">
         </div>
-        <div class="toolbar__filters">
+        <div class="toolbar__filters" id="dynamic-filters">
             <button class="filter-btn active" data-filter="all">All</button>
-            <button class="filter-btn" data-filter="AI/ML Engineer">AI/ML</button>
-            <button class="filter-btn" data-filter="AI Research">Research</button>
-            <button class="filter-btn" data-filter="Data Scientist">Data Sci</button>
-            <button class="filter-btn" data-filter="Search/Ranking">Search</button>
-            <button class="filter-btn" data-filter="NLP Engineer">NLP</button>
+            <!-- Filter buttons are dynamically generated from data -->
         </div>
         <div class="sort-box">
             <span class="sort-box__label">Sort:</span>

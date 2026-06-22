@@ -1,6 +1,7 @@
 /**
  * HirenixAI — Dashboard Client-Side Application
- * Handles data fetching, rendering, search/filter, and candidate detail modal.
+ * Handles data fetching, rendering, search/filter, candidate detail modal,
+ * job config management, candidate upload, and pipeline execution.
  */
 
 // ── State ────────────────────────────────────────────────────────────────────
@@ -10,17 +11,18 @@ let currentFilter = 'all';
 let searchQuery = '';
 let currentSort = 'rank-asc';
 let compareList = new Set();
+let currentConfig = {};
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-    await Promise.all([loadCandidates(), loadStats()]);
+    await Promise.all([loadCandidates(), loadStats(), loadConfig()]);
     setupSearch();
     setupFilters();
     setupModal();
-    animateCounters();
     setupThemes();
     setupSorting();
     setupCompare();
+    setupConfigPanel();
 });
 
 // ── Data Loading ─────────────────────────────────────────────────────────────
@@ -43,18 +45,44 @@ async function loadStats() {
         renderScoreDistribution(statsData.score_distribution);
         renderSkillsCloud(statsData.top_skills);
         renderRoleDistribution(statsData.role_distribution);
+        updatePipelineCounters(statsData);
+        updateDynamicFilters(statsData.role_distribution);
+        // Update active job banner
+        const bannerTitle = document.getElementById('active-job-title');
+        if (bannerTitle) {
+            bannerTitle.textContent = statsData.job_title || 'Not configured';
+        }
     } catch (err) {
         console.error('Failed to load stats:', err);
     }
 }
 
-// ── Counter Animation ────────────────────────────────────────────────────────
+async function loadConfig() {
+    try {
+        const res = await fetch('/api/config');
+        currentConfig = await res.json();
+        populateConfigForm(currentConfig);
+    } catch (err) {
+        console.error('Failed to load config:', err);
+    }
+}
 
-function animateCounters() {
-    const counters = document.querySelectorAll('.pipeline__stage-value[data-target]');
-    counters.forEach((el, i) => {
-        const target = parseInt(el.dataset.target);
-        setTimeout(() => animateValue(el, 0, target, 1200), i * 250);
+// ── Pipeline Counter Animation (Dynamic) ─────────────────────────────────────
+
+function updatePipelineCounters(stats) {
+    const mappings = [
+        { id: 'counter-scanned', value: stats.total_candidates_scanned || 0 },
+        { id: 'counter-stage1', value: stats.stage1_filtered || 0 },
+        { id: 'counter-stage2', value: stats.stage2_semantic || 0 },
+        { id: 'counter-final', value: stats.final_ranked || 0 },
+    ];
+    
+    mappings.forEach(({ id, value }, i) => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.dataset.target = value;
+            setTimeout(() => animateValue(el, 0, value, 1200), i * 250);
+        }
     });
 }
 
@@ -70,6 +98,29 @@ function animateValue(el, start, end, duration) {
         if (progress < 1) requestAnimationFrame(update);
     }
     requestAnimationFrame(update);
+}
+
+// ── Dynamic Filter Buttons ───────────────────────────────────────────────────
+
+function updateDynamicFilters(roleDistribution) {
+    const container = document.getElementById('dynamic-filters');
+    if (!container || !roleDistribution) return;
+    
+    // Keep 'All' button, add buttons for each role category
+    const roles = Object.entries(roleDistribution)
+        .sort((a, b) => b[1] - a[1])  // Sort by count descending
+        .slice(0, 8);  // Show top 8 categories
+    
+    container.innerHTML = '<button class="filter-btn active" data-filter="all">All</button>';
+    
+    roles.forEach(([role, count]) => {
+        // Create a short label
+        const shortLabel = role.length > 15 ? role.substring(0, 12) + '…' : role;
+        container.innerHTML += `<button class="filter-btn" data-filter="${role}" title="${role} (${count})">${shortLabel}</button>`;
+    });
+    
+    // Re-attach filter event listeners
+    setupFilters();
 }
 
 // ── Render Functions ─────────────────────────────────────────────────────────
@@ -141,6 +192,10 @@ function renderCandidates(candidates) {
 
 function renderScoreDistribution(dist) {
     const container = document.getElementById('score-distribution');
+    if (!dist || Object.keys(dist).length === 0) {
+        container.innerHTML = '<div class="loading__text">No data available</div>';
+        return;
+    }
     const maxVal = Math.max(...Object.values(dist));
 
     container.innerHTML = Object.entries(dist).map(([label, count]) => {
@@ -158,6 +213,10 @@ function renderScoreDistribution(dist) {
 
 function renderSkillsCloud(skills) {
     const container = document.getElementById('skills-cloud');
+    if (!skills || skills.length === 0) {
+        container.innerHTML = '<div class="loading__text">No data available</div>';
+        return;
+    }
     container.innerHTML = skills.map(([name, count]) =>
         `<span class="skill-cloud__tag">${name}<span class="count">${count}</span></span>`
     ).join('');
@@ -165,6 +224,10 @@ function renderSkillsCloud(skills) {
 
 function renderRoleDistribution(roles) {
     const container = document.getElementById('role-distribution');
+    if (!roles || Object.keys(roles).length === 0) {
+        container.innerHTML = '<div class="loading__text">No data available</div>';
+        return;
+    }
     const sorted = Object.entries(roles).sort((a, b) => b[1] - a[1]);
     container.innerHTML = sorted.map(([name, count]) =>
         `<div class="role-item">
@@ -221,7 +284,8 @@ function applyFilters() {
         switch (currentSort) {
             case 'rank-asc': return a.rank - b.rank;
             case 'score-desc': return b.score - a.score;
-            case 'exp-desc': return b.years_of_experience - a.years_of_experience;
+            case 'experience-desc': return b.years_of_experience - a.years_of_experience;
+            case 'experience-asc': return a.years_of_experience - b.years_of_experience;
             case 'notice-asc': return (a.notice_period_days || 999) - (b.notice_period_days || 999);
             case 'name-asc': return a.name.localeCompare(b.name);
             default: return a.rank - b.rank;
@@ -649,4 +713,235 @@ function renderCompareMatrix(candidates) {
     };
     overlay.addEventListener('click', closeHandler);
     document.getElementById('modal-close').addEventListener('click', closeHandler, { once: true });
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CONFIG PANEL — Job Configuration & Pipeline Management
+// ══════════════════════════════════════════════════════════════════════════════
+
+function setupConfigPanel() {
+    const toggleBtn = document.getElementById('config-toggle');
+    const closeBtn = document.getElementById('config-close');
+    const panel = document.getElementById('config-panel');
+    const saveBtn = document.getElementById('config-save');
+    const runBtn = document.getElementById('config-run-pipeline');
+    const uploadBtn = document.getElementById('upload-btn');
+    const uploadInput = document.getElementById('cfg-upload-file');
+
+    // Toggle panel
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+            const isVisible = panel.style.display !== 'none';
+            panel.style.display = isVisible ? 'none' : 'block';
+            if (!isVisible) {
+                panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+    }
+
+    // Close panel
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            panel.style.display = 'none';
+        });
+    }
+
+    // Save config
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveConfig);
+    }
+
+    // Run pipeline
+    if (runBtn) {
+        runBtn.addEventListener('click', runPipeline);
+    }
+
+    // File upload
+    if (uploadBtn && uploadInput) {
+        uploadBtn.addEventListener('click', () => uploadInput.click());
+        uploadInput.addEventListener('change', handleFileUpload);
+    }
+}
+
+function populateConfigForm(config) {
+    const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.value = val || '';
+    };
+
+    setVal('cfg-job-title', config.job_title);
+    setVal('cfg-job-desc', config.job_description);
+    
+    const expRange = config.experience_range || [5, 9];
+    setVal('cfg-exp-min', expRange[0]);
+    setVal('cfg-exp-max', expRange[1]);
+    
+    setVal('cfg-skills', (config.required_skills || []).join(', '));
+    setVal('cfg-preferred-titles', (config.preferred_titles || []).join(', '));
+    setVal('cfg-reject-titles', (config.reject_titles || []).join(', '));
+    
+    const ps = config.pipeline_settings || {};
+    setVal('cfg-stage1-k', ps.stage1_top_k);
+    setVal('cfg-stage2-k', ps.stage2_top_k);
+    setVal('cfg-final-k', ps.final_top_k);
+}
+
+function buildConfigFromForm() {
+    const getVal = (id) => {
+        const el = document.getElementById(id);
+        return el ? el.value.trim() : '';
+    };
+    
+    const parseList = (val) => {
+        return val.split(',').map(s => s.trim()).filter(s => s.length > 0);
+    };
+
+    return {
+        job_title: getVal('cfg-job-title'),
+        job_description: getVal('cfg-job-desc'),
+        experience_range: [
+            parseInt(getVal('cfg-exp-min')) || 0,
+            parseInt(getVal('cfg-exp-max')) || 50
+        ],
+        required_skills: parseList(getVal('cfg-skills')),
+        preferred_titles: parseList(getVal('cfg-preferred-titles')),
+        reject_titles: parseList(getVal('cfg-reject-titles')),
+        pipeline_settings: {
+            stage1_top_k: parseInt(getVal('cfg-stage1-k')) || 2000,
+            stage2_top_k: parseInt(getVal('cfg-stage2-k')) || 150,
+            final_top_k: parseInt(getVal('cfg-final-k')) || 100
+        }
+    };
+}
+
+async function saveConfig() {
+    const saveBtn = document.getElementById('config-save');
+    const config = buildConfigFromForm();
+    
+    saveBtn.textContent = '⏳ Saving...';
+    saveBtn.disabled = true;
+    
+    try {
+        const res = await fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+        
+        const data = await res.json();
+        if (res.ok) {
+            currentConfig = data.config || config;
+            saveBtn.textContent = '✅ Saved!';
+            // Update job banner
+            const bannerTitle = document.getElementById('active-job-title');
+            if (bannerTitle) bannerTitle.textContent = config.job_title || 'Not configured';
+            setTimeout(() => {
+                saveBtn.textContent = '💾 Save Config';
+                saveBtn.disabled = false;
+            }, 2000);
+        } else {
+            alert('Error saving config: ' + (data.error || 'Unknown error'));
+            saveBtn.textContent = '💾 Save Config';
+            saveBtn.disabled = false;
+        }
+    } catch (err) {
+        alert('Failed to save config: ' + err.message);
+        saveBtn.textContent = '💾 Save Config';
+        saveBtn.disabled = false;
+    }
+}
+
+async function handleFileUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const statusEl = document.getElementById('upload-status');
+    statusEl.textContent = `Uploading ${file.name}...`;
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+        const res = await fetch('/api/upload-candidates', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await res.json();
+        if (res.ok) {
+            statusEl.textContent = `✅ ${data.message}`;
+        } else {
+            statusEl.textContent = `❌ ${data.error}`;
+        }
+    } catch (err) {
+        statusEl.textContent = `❌ Upload failed: ${err.message}`;
+    }
+}
+
+async function runPipeline() {
+    const runBtn = document.getElementById('config-run-pipeline');
+    const progressContainer = document.getElementById('pipeline-progress');
+    const progressFill = document.getElementById('pipeline-progress-fill');
+    const progressText = document.getElementById('pipeline-progress-text');
+    
+    // First save config
+    await saveConfig();
+    
+    runBtn.textContent = '⏳ Starting...';
+    runBtn.disabled = true;
+    progressContainer.style.display = 'block';
+    
+    try {
+        const res = await fetch('/api/run-pipeline', { method: 'POST' });
+        const data = await res.json();
+        
+        if (!res.ok) {
+            alert('Error: ' + (data.error || 'Failed to start pipeline'));
+            runBtn.textContent = '🚀 Run Pipeline';
+            runBtn.disabled = false;
+            progressContainer.style.display = 'none';
+            return;
+        }
+        
+        // Poll for status
+        const pollInterval = setInterval(async () => {
+            try {
+                const statusRes = await fetch('/api/pipeline-status');
+                const status = await statusRes.json();
+                
+                progressFill.style.width = status.progress + '%';
+                progressText.textContent = status.message;
+                runBtn.textContent = `⏳ ${status.progress}%`;
+                
+                if (!status.running) {
+                    clearInterval(pollInterval);
+                    runBtn.textContent = '🚀 Run Pipeline';
+                    runBtn.disabled = false;
+                    
+                    if (status.progress === 100) {
+                        progressText.textContent = '✅ ' + status.message;
+                        // Reload all data
+                        await Promise.all([loadCandidates(), loadStats()]);
+                        setTimeout(() => {
+                            progressContainer.style.display = 'none';
+                        }, 3000);
+                    } else {
+                        progressText.textContent = '❌ ' + status.message;
+                    }
+                }
+            } catch (err) {
+                clearInterval(pollInterval);
+                progressText.textContent = '❌ Lost connection to server';
+                runBtn.textContent = '🚀 Run Pipeline';
+                runBtn.disabled = false;
+            }
+        }, 2000);
+        
+    } catch (err) {
+        alert('Failed to start pipeline: ' + err.message);
+        runBtn.textContent = '🚀 Run Pipeline';
+        runBtn.disabled = false;
+        progressContainer.style.display = 'none';
+    }
 }

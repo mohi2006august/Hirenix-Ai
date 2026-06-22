@@ -1,59 +1,137 @@
 """
 HirenixAI — Intelligent Candidate Discovery & Ranking Dashboard
 Flask API backend that serves candidate data, analytics, and competitive analysis.
+Now fully configurable — works with any job description and candidate dataset.
 """
 import csv
 import json
 import os
+import sys
+import threading
 from collections import Counter, defaultdict
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
+CONFIG_PATH = os.path.join(BASE_DIR, 'job_config.json')
+CANDIDATES_PATH = os.path.join(BASE_DIR, 'candidates.jsonl')
+SUBMISSION_PATH = os.path.join(BASE_DIR, 'submission.csv')
+
+# Add current dir to path for pipeline imports
+sys.path.append(BASE_DIR)
 
 app = Flask(__name__, static_folder=STATIC_DIR)
 
-# ── Global data stores (loaded once at startup) ──────────────────────────────
+# ── Global data stores (loaded once at startup, reloaded on pipeline re-run) ──
 RANKED_CANDIDATES = []      # Full candidate dicts, merged with ranking data
 CANDIDATE_INDEX = {}        # candidate_id → full dict
 ROLE_GROUPS = defaultdict(list)  # role_category → [candidate_ids]
+JD_CONFIG = {}              # Active job config
+PIPELINE_STATUS = {"running": False, "message": "Idle", "progress": 0}
 
-# ── JD context for "why selected" reasoning ───────────────────────────────────
-JD_REQUIREMENTS = {
-    "title": "Senior AI/ML Engineer",
-    "experience_range": (5, 9),
-    "core_skills": [
-        "embeddings", "retrieval", "ranking", "LLMs", "fine-tuning",
-        "sentence-transformers", "BGE", "E5", "vector databases",
-        "Pinecone", "Weaviate", "Qdrant", "Milvus", "FAISS",
-        "NDCG", "MRR", "MAP", "A/B testing", "Python",
-        "recommendation systems", "NLP", "deep learning",
-        "PyTorch", "TensorFlow", "scikit-learn"
-    ],
-    "role_keywords": [
-        "AI", "ML", "Machine Learning", "Data Scientist",
-        "Search", "NLP", "Ranking", "Retrieval", "Recommendation"
-    ]
-}
 
-# ── Role categorization ──────────────────────────────────────────────────────
-ROLE_CATEGORIES = {
-    "AI/ML Engineer": ["ai engineer", "ml engineer", "machine learning engineer", "applied ml engineer", "senior ai engineer"],
-    "AI Research": ["ai research engineer", "ai specialist"],
-    "Data Scientist": ["data scientist", "senior data scientist"],
-    "NLP Engineer": ["nlp engineer", "senior nlp engineer"],
-    "Search/Ranking": ["search engineer", "recommendation systems engineer"],
-    "Software Engineer (ML)": ["senior software engineer (ml)", "senior software engineer"],
-    "Junior ML": ["junior ml engineer"],
-}
+# ── Config Loading ─────────────────────────────────────────────────────────────
 
-def categorize_role(title: str) -> str:
-    """Map a candidate title to a broader role category."""
+def load_jd_config():
+    """Load job config from job_config.json, with fallback defaults."""
+    global JD_CONFIG
+    
+    defaults = {
+        "job_title": "Senior AI/ML Engineer",
+        "job_description": (
+            "Senior AI Engineer with 5-9 years of experience. "
+            "Deep technical depth in modern ML systems: embeddings, retrieval, ranking, LLMs, fine-tuning. "
+            "Production experience with embeddings-based retrieval systems like sentence-transformers, BGE, E5. "
+            "Experience with vector databases such as Pinecone, Weaviate, Qdrant, Milvus, FAISS. "
+            "Hands-on experience with evaluation frameworks for ranking systems: NDCG, MRR, MAP, A/B testing. "
+            "Strong Python programming skills. Ability to build end-to-end ranking and recommendation systems."
+        ),
+        "experience_range": [5, 9],
+        "required_skills": [
+            "embeddings", "retrieval", "ranking", "LLMs", "fine-tuning",
+            "sentence-transformers", "BGE", "E5", "vector databases",
+            "Pinecone", "Weaviate", "Qdrant", "Milvus", "FAISS",
+            "NDCG", "MRR", "MAP", "A/B testing", "Python",
+            "recommendation systems", "NLP", "deep learning",
+            "PyTorch", "TensorFlow", "scikit-learn"
+        ],
+        "preferred_titles": [
+            "ai engineer", "ml engineer", "machine learning engineer",
+            "data scientist", "search engineer", "ranking engineer",
+            "retrieval engineer", "nlp engineer", "recommendation engineer",
+            "applied ml engineer", "senior ai engineer", "senior data scientist",
+            "backend engineer", "data engineer"
+        ],
+        "reject_titles": [
+            "marketing", "accountant", "customer support",
+            "hardware", "mechanical"
+        ],
+        "pipeline_settings": {
+            "stage1_top_k": 2000,
+            "stage2_top_k": 150,
+            "final_top_k": 100
+        }
+    }
+    
+    if os.path.exists(CONFIG_PATH):
+        try:
+            with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
+                JD_CONFIG = json.load(f)
+            print(f"Loaded job config: {JD_CONFIG.get('job_title', 'N/A')}")
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"Warning: Failed to load {CONFIG_PATH}: {e}. Using defaults.")
+            JD_CONFIG = defaults
+    else:
+        print("No job_config.json found. Using defaults.")
+        JD_CONFIG = defaults
+
+def save_jd_config():
+    """Save the current JD_CONFIG to disk."""
+    with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
+        json.dump(JD_CONFIG, f, indent=2, ensure_ascii=False)
+
+
+# ── Role Auto-Detection ──────────────────────────────────────────────────────
+
+def auto_detect_role_category(title: str) -> str:
+    """
+    Automatically categorize a candidate's title into a role category.
+    Uses the preferred_titles from config + common pattern matching.
+    """
     title_lower = title.lower().strip()
-    for category, keywords in ROLE_CATEGORIES.items():
+    
+    # Common role category patterns (ordered by specificity)
+    ROLE_PATTERNS = [
+        # AI/ML
+        (["ai engineer", "ml engineer", "machine learning engineer", "applied ml", "senior ai engineer"], "AI/ML Engineer"),
+        (["ai research", "ai specialist", "research scientist", "research engineer"], "AI Research"),
+        # Data Science
+        (["data scientist", "senior data scientist", "lead data scientist"], "Data Scientist"),
+        # NLP
+        (["nlp engineer", "natural language", "computational linguist"], "NLP Engineer"),
+        # Search/Ranking/Retrieval
+        (["search engineer", "ranking engineer", "retrieval engineer", "recommendation"], "Search/Ranking"),
+        # Backend/Software (ML)
+        (["software engineer", "backend engineer", "senior software engineer"], "Software Engineer (ML)"),
+        # Data Engineering
+        (["data engineer", "analytics engineer", "etl engineer"], "Data Engineer"),
+        # Junior/Entry
+        (["junior", "intern", "trainee", "associate"], "Junior/Entry Level"),
+        # Management
+        (["manager", "director", "head of", "vp of", "lead"], "Leadership"),
+        # Frontend/Full-stack
+        (["frontend", "front-end", "full stack", "fullstack", "react", "angular", "vue"], "Frontend/Full-Stack"),
+        # DevOps/Infra
+        (["devops", "sre", "infrastructure", "platform engineer", "cloud engineer"], "DevOps/Infra"),
+        # Product/Design
+        (["product manager", "product owner", "ux designer", "ui designer"], "Product/Design"),
+    ]
+    
+    for keywords, category in ROLE_PATTERNS:
         for kw in keywords:
             if kw in title_lower:
                 return category
+    
     return "Other"
 
 
@@ -61,6 +139,7 @@ def generate_why_selected(candidate: dict) -> dict:
     """
     Generate a detailed, structured 'why selected' reasoning for a candidate.
     Returns a dict with multiple reasoning dimensions.
+    Uses JD_CONFIG for dynamic skill matching and experience range.
     """
     profile = candidate.get("profile", {})
     skills = candidate.get("skills", [])
@@ -71,9 +150,9 @@ def generate_why_selected(candidate: dict) -> dict:
     yoe = profile.get("years_of_experience", 0)
     title = profile.get("current_title", "Unknown")
     
-    # ── Skill matching ──
+    # ── Skill matching (from config) ──
     candidate_skill_names = [s["name"].lower() for s in skills]
-    jd_skills_lower = [s.lower() for s in JD_REQUIREMENTS["core_skills"]]
+    jd_skills_lower = [s.lower() for s in JD_CONFIG.get("required_skills", [])]
     
     matched_skills = []
     for s in skills:
@@ -82,8 +161,10 @@ def generate_why_selected(candidate: dict) -> dict:
     
     advanced_skills = [s for s in skills if s.get("proficiency") in ("advanced", "expert")]
     
-    # ── Experience analysis ──
-    exp_min, exp_max = JD_REQUIREMENTS["experience_range"]
+    # ── Experience analysis (from config) ──
+    exp_range = JD_CONFIG.get("experience_range", [5, 9])
+    exp_min = exp_range[0] if len(exp_range) > 0 else 5
+    exp_max = exp_range[1] if len(exp_range) > 1 else 9
     exp_fit = "perfect" if exp_min <= yoe <= exp_max else ("over-qualified" if yoe > exp_max else "developing")
     
     # ── Signal analysis ──
@@ -154,8 +235,9 @@ def generate_why_selected(candidate: dict) -> dict:
         concerns.append(f"Extended notice period ({np_days} days) may delay onboarding")
     
     # Title relevance
-    role_cat = categorize_role(title)
-    if role_cat in ("AI/ML Engineer", "AI Research", "NLP Engineer", "Search/Ranking"):
+    role_cat = auto_detect_role_category(title)
+    relevant_roles = {"AI/ML Engineer", "AI Research", "NLP Engineer", "Search/Ranking", "Data Scientist"}
+    if role_cat in relevant_roles:
         strengths.append(f"Current role ({title}) is directly relevant to the position")
     
     return {
@@ -186,10 +268,18 @@ def load_data():
     """Load submission.csv and merge with full candidate data from candidates.jsonl."""
     global RANKED_CANDIDATES, CANDIDATE_INDEX, ROLE_GROUPS
     
+    # Reset
+    RANKED_CANDIDATES = []
+    CANDIDATE_INDEX = {}
+    ROLE_GROUPS = defaultdict(list)
+    
     # 1. Read submission.csv
-    submission_path = os.path.join(BASE_DIR, "submission.csv")
+    if not os.path.exists(SUBMISSION_PATH):
+        print("Warning: submission.csv not found. Dashboard will be empty until pipeline is run.")
+        return
+    
     ranked = {}
-    with open(submission_path, "r", encoding="utf-8") as f:
+    with open(SUBMISSION_PATH, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
             ranked[row["candidate_id"]] = {
@@ -200,12 +290,25 @@ def load_data():
     
     ranked_ids = set(ranked.keys())
     
-    # 2. Read candidates.jsonl and extract only ranked candidates
-    candidates_path = os.path.join(BASE_DIR, "candidates.jsonl")
-    full_data = {}
+    # 2. Read candidates file and extract only ranked candidates
+    candidates_file = CANDIDATES_PATH
+    if not os.path.exists(candidates_file):
+        print(f"Warning: {candidates_file} not found. Showing ranking data only.")
+        # Still show what we have from submission.csv
+        for cid, rank_info in ranked.items():
+            candidate = {"candidate_id": cid, "profile": {}, "skills": [], "redrob_signals": {}, "career_history": []}
+            candidate.update(rank_info)
+            candidate["why_selected"] = generate_why_selected(candidate)
+            candidate["role_category"] = "Other"
+            ROLE_GROUPS["Other"].append(cid)
+            RANKED_CANDIDATES.append(candidate)
+            CANDIDATE_INDEX[cid] = candidate
+        RANKED_CANDIDATES.sort(key=lambda x: x["rank"])
+        return
     
-    print(f"Loading {len(ranked_ids)} ranked candidates from candidates.jsonl...")
-    with open(candidates_path, "r", encoding="utf-8") as f:
+    full_data = {}
+    print(f"Loading {len(ranked_ids)} ranked candidates from {candidates_file}...")
+    with open(candidates_file, "r", encoding="utf-8") as f:
         for line in f:
             if not line.strip():
                 continue
@@ -227,9 +330,9 @@ def load_data():
         # Generate detailed reasoning
         candidate["why_selected"] = generate_why_selected(candidate)
         
-        # Categorize role
+        # Categorize role (auto-detect)
         title = candidate.get("profile", {}).get("current_title", "")
-        role_cat = categorize_role(title)
+        role_cat = auto_detect_role_category(title)
         candidate["role_category"] = role_cat
         ROLE_GROUPS[role_cat].append(cid)
         
@@ -241,6 +344,62 @@ def load_data():
     print(f"Loaded {len(RANKED_CANDIDATES)} candidates across {len(ROLE_GROUPS)} role categories.")
 
 
+# ── Pipeline Execution ───────────────────────────────────────────────────────
+
+def run_pipeline_thread():
+    """Run the full pipeline in a background thread."""
+    global PIPELINE_STATUS
+    
+    try:
+        from pipeline.stage1_filter import process_file_in_chunks
+        from pipeline.stage2_semantic import semantic_rank
+        from pipeline.stage3_signals import apply_signals_and_reasoning
+        
+        PIPELINE_STATUS = {"running": True, "message": "Stage 1: Heuristic Filtering...", "progress": 10}
+        
+        pipeline_settings = JD_CONFIG.get("pipeline_settings", {})
+        stage1_top_k = pipeline_settings.get("stage1_top_k", 2000)
+        stage2_top_k = pipeline_settings.get("stage2_top_k", 150)
+        final_top_k = pipeline_settings.get("final_top_k", 100)
+        
+        # Stage 1
+        top_k_filtered = process_file_in_chunks(CANDIDATES_PATH, jd_config=JD_CONFIG, top_k=stage1_top_k)
+        PIPELINE_STATUS = {"running": True, "message": f"Stage 1 complete. {len(top_k_filtered)} candidates. Running Stage 2...", "progress": 40}
+        
+        # Stage 2
+        jd_text = JD_CONFIG.get("job_description", "")
+        semantically_ranked = semantic_rank(top_k_filtered, jd_text=jd_text, top_k=stage2_top_k)
+        PIPELINE_STATUS = {"running": True, "message": f"Stage 2 complete. {len(semantically_ranked)} candidates. Running Stage 3...", "progress": 75}
+        
+        # Stage 3
+        final_ranked = apply_signals_and_reasoning(semantically_ranked, final_top_k=final_top_k)
+        PIPELINE_STATUS = {"running": True, "message": "Writing results...", "progress": 90}
+        
+        # Write submission.csv
+        with open(SUBMISSION_PATH, 'w', encoding='utf-8', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(["candidate_id", "rank", "score", "reasoning"])
+            for c in final_ranked:
+                writer.writerow([
+                    c['candidate_id'],
+                    c['rank'],
+                    f"{c['final_score']:.4f}",
+                    c['reasoning']
+                ])
+        
+        # Reload dashboard data
+        load_data()
+        
+        PIPELINE_STATUS = {"running": False, "message": f"Complete! Ranked {len(final_ranked)} candidates.", "progress": 100}
+        print(f"Pipeline complete. Ranked {len(final_ranked)} candidates.")
+        
+    except Exception as e:
+        PIPELINE_STATUS = {"running": False, "message": f"Error: {str(e)}", "progress": 0}
+        print(f"Pipeline error: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 # ── API Routes ────────────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -250,7 +409,7 @@ def index():
 
 @app.route("/api/candidates")
 def api_candidates():
-    """Return all 100 ranked candidates (summary view)."""
+    """Return all ranked candidates (summary view)."""
     result = []
     for c in RANKED_CANDIDATES:
         profile = c.get("profile", {})
@@ -377,6 +536,23 @@ def api_candidate_detail(candidate_id):
 @app.route("/api/stats")
 def api_stats():
     """Aggregate analytics for the dashboard header."""
+    if not RANKED_CANDIDATES:
+        return jsonify({
+            "total_candidates_scanned": 0,
+            "stage1_filtered": 0,
+            "stage2_semantic": 0,
+            "final_ranked": 0,
+            "avg_score": 0,
+            "max_score": 0,
+            "min_score": 0,
+            "avg_experience": 0,
+            "score_distribution": {},
+            "experience_distribution": {},
+            "top_skills": [],
+            "role_distribution": {},
+            "job_title": JD_CONFIG.get("job_title", "N/A")
+        })
+    
     scores = [c["score"] for c in RANKED_CANDIDATES]
     experiences = [c.get("profile", {}).get("years_of_experience", 0) for c in RANKED_CANDIDATES]
     
@@ -398,22 +574,25 @@ def api_stats():
         else: score_buckets["<0.70"] += 1
     
     # Experience distribution
-    exp_buckets = {"3-4 yrs": 0, "4-5 yrs": 0, "5-6 yrs": 0, "6-7 yrs": 0, "7-8 yrs": 0, "8+ yrs": 0}
+    exp_buckets = {"0-2 yrs": 0, "2-4 yrs": 0, "4-6 yrs": 0, "6-8 yrs": 0, "8-10 yrs": 0, "10+ yrs": 0}
     for e in experiences:
-        if e < 4: exp_buckets["3-4 yrs"] += 1
-        elif e < 5: exp_buckets["4-5 yrs"] += 1
-        elif e < 6: exp_buckets["5-6 yrs"] += 1
-        elif e < 7: exp_buckets["6-7 yrs"] += 1
-        elif e < 8: exp_buckets["7-8 yrs"] += 1
-        else: exp_buckets["8+ yrs"] += 1
+        if e < 2: exp_buckets["0-2 yrs"] += 1
+        elif e < 4: exp_buckets["2-4 yrs"] += 1
+        elif e < 6: exp_buckets["4-6 yrs"] += 1
+        elif e < 8: exp_buckets["6-8 yrs"] += 1
+        elif e < 10: exp_buckets["8-10 yrs"] += 1
+        else: exp_buckets["10+ yrs"] += 1
     
-    # Role distribution
+    # Role distribution (dynamic from actual data)
     role_dist = {cat: len(ids) for cat, ids in ROLE_GROUPS.items()}
     
+    # Pipeline settings for dynamic counter display
+    pipeline_settings = JD_CONFIG.get("pipeline_settings", {})
+    
     return jsonify({
-        "total_candidates_scanned": 100000,
-        "stage1_filtered": 2000,
-        "stage2_semantic": 150,
+        "total_candidates_scanned": pipeline_settings.get("stage1_top_k", 2000) * 50,  # Estimate
+        "stage1_filtered": pipeline_settings.get("stage1_top_k", 2000),
+        "stage2_semantic": pipeline_settings.get("stage2_top_k", 150),
         "final_ranked": len(RANKED_CANDIDATES),
         "avg_score": round(sum(scores) / len(scores), 4) if scores else 0,
         "max_score": round(max(scores), 4) if scores else 0,
@@ -422,12 +601,134 @@ def api_stats():
         "score_distribution": score_buckets,
         "experience_distribution": exp_buckets,
         "top_skills": skill_counter.most_common(20),
-        "role_distribution": role_dist
+        "role_distribution": role_dist,
+        "job_title": JD_CONFIG.get("job_title", "N/A")
     })
+
+
+# ── Config API ────────────────────────────────────────────────────────────────
+
+@app.route("/api/config", methods=["GET"])
+def api_get_config():
+    """Return the current active job config."""
+    return jsonify(JD_CONFIG)
+
+
+@app.route("/api/config", methods=["POST"])
+def api_update_config():
+    """Update the job config. Expects JSON body with config fields."""
+    global JD_CONFIG
+    
+    try:
+        new_config = request.get_json()
+        if not new_config:
+            return jsonify({"error": "No JSON body provided"}), 400
+        
+        # Merge with existing config (allows partial updates)
+        JD_CONFIG.update(new_config)
+        
+        # Save to disk
+        save_jd_config()
+        
+        return jsonify({"status": "ok", "message": "Config updated successfully", "config": JD_CONFIG})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ── Candidate Upload API ──────────────────────────────────────────────────────
+
+@app.route("/api/upload-candidates", methods=["POST"])
+def api_upload_candidates():
+    """Upload a new candidates JSONL file."""
+    global CANDIDATES_PATH
+    
+    if 'file' not in request.files:
+        return jsonify({"error": "No file provided. Use multipart/form-data with field name 'file'."}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "Empty filename"}), 400
+    
+    # Save the uploaded file
+    upload_path = os.path.join(BASE_DIR, 'candidates.jsonl')
+    file.save(upload_path)
+    CANDIDATES_PATH = upload_path
+    
+    # Count lines to give user feedback
+    line_count = 0
+    with open(upload_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                line_count += 1
+    
+    return jsonify({
+        "status": "ok",
+        "message": f"Uploaded {file.filename} with {line_count:,} candidates.",
+        "candidates_count": line_count,
+        "path": upload_path
+    })
+
+
+@app.route("/api/set-candidates-path", methods=["POST"])
+def api_set_candidates_path():
+    """Set the path to a candidates JSONL file already on disk."""
+    global CANDIDATES_PATH
+    
+    data = request.get_json()
+    if not data or 'path' not in data:
+        return jsonify({"error": "Provide 'path' in JSON body"}), 400
+    
+    path = data['path']
+    if not os.path.exists(path):
+        return jsonify({"error": f"File not found: {path}"}), 404
+    
+    CANDIDATES_PATH = path
+    
+    # Count lines
+    line_count = 0
+    with open(path, 'r', encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                line_count += 1
+    
+    return jsonify({
+        "status": "ok",
+        "message": f"Set candidates path to {path} ({line_count:,} candidates).",
+        "candidates_count": line_count
+    })
+
+
+# ── Pipeline Execution API ────────────────────────────────────────────────────
+
+@app.route("/api/run-pipeline", methods=["POST"])
+def api_run_pipeline():
+    """Trigger a full pipeline re-run with current config and data."""
+    global PIPELINE_STATUS
+    
+    if PIPELINE_STATUS["running"]:
+        return jsonify({"error": "Pipeline is already running.", "status": PIPELINE_STATUS}), 409
+    
+    if not os.path.exists(CANDIDATES_PATH):
+        return jsonify({"error": f"Candidates file not found: {CANDIDATES_PATH}"}), 404
+    
+    # Start pipeline in background thread
+    thread = threading.Thread(target=run_pipeline_thread, daemon=True)
+    thread.start()
+    
+    return jsonify({"status": "ok", "message": "Pipeline started.", "pipeline_status": PIPELINE_STATUS})
+
+
+@app.route("/api/pipeline-status")
+def api_pipeline_status():
+    """Check the current pipeline execution status."""
+    return jsonify(PIPELINE_STATUS)
 
 
 # ── Bootstrap ─────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
+    load_jd_config()
     load_data()
-    print("\n>>> HirenixAI Dashboard running at http://localhost:5000\n")
+    print(f"\n>>> HirenixAI Dashboard running at http://localhost:5000")
+    print(f">>> Job Config: {JD_CONFIG.get('job_title', 'N/A')}")
+    print(f">>> Candidates: {CANDIDATES_PATH}\n")
     app.run(host="0.0.0.0", port=5000, debug=False)

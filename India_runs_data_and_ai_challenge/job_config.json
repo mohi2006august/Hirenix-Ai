@@ -1,0 +1,63 @@
+{
+  "job_title": "Senior AI/ML Engineer",
+  "job_description": "Senior AI Engineer with 5-9 years of experience. Deep technical depth in modern ML systems: embeddings, retrieval, ranking, LLMs, fine-tuning. Production experience with embeddings-based retrieval systems like sentence-transformers, BGE, E5. Experience with vector databases such as Pinecone, Weaviate, Qdrant, Milvus, FAISS. Hands-on experience with evaluation frameworks for ranking systems: NDCG, MRR, MAP, A/B testing. Strong Python programming skills. Ability to build end-to-end ranking and recommendation systems.",
+  "experience_range": [
+    5,
+    9
+  ],
+  "required_skills": [
+    "embeddings",
+    "retrieval",
+    "ranking",
+    "LLMs",
+    "fine-tuning",
+    "sentence-transformers",
+    "BGE",
+    "E5",
+    "vector databases",
+    "Pinecone",
+    "Weaviate",
+    "Qdrant",
+    "Milvus",
+    "FAISS",
+    "NDCG",
+    "MRR",
+    "MAP",
+    "A/B testing",
+    "Python",
+    "recommendation systems",
+    "NLP",
+    "deep learning",
+    "PyTorch",
+    "TensorFlow",
+    "scikit-learn"
+  ],
+  "preferred_titles": [
+    "ai engineer",
+    "ml engineer",
+    "machine learning engineer",
+    "data scientist",
+    "search engineer",
+    "ranking engineer",
+    "retrieval engineer",
+    "nlp engineer",
+    "recommendation engineer",
+    "applied ml engineer",
+    "senior ai engineer",
+    "senior data scientist",
+    "backend engineer",
+    "data engineer"
+  ],
+  "reject_titles": [
+    "marketing",
+    "accountant",
+    "customer support",
+    "hardware",
+    "mechanical"
+  ],
+  "pipeline_settings": {
+    "stage1_top_k": 2000,
+    "stage2_top_k": 150,
+    "final_top_k": 100
+  }
+}

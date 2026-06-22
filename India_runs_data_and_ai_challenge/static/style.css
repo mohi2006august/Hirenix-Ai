@@ -1290,3 +1290,362 @@ body::before {
 .radial-progress::before { content: ''; position: absolute; inset: 4px; background: var(--bg-secondary); border-radius: 50%; }
 .radial-progress__value { position: relative; font-weight: 700; font-size: 13px; color: var(--text-primary); z-index: 1; }
 .skill-tag--matched { border-color: var(--accent-primary) !important; box-shadow: 0 0 8px rgba(99, 102, 241, 0.25); background: rgba(99, 102, 241, 0.15) !important; color: white !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   CONFIG TOGGLE BUTTON
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.config-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    background: rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: var(--radius-xl);
+    color: var(--text-accent);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(var(--glass-blur));
+}
+
+.config-toggle-btn:hover {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.25);
+    transform: translateY(-1px);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   ACTIVE JOB BANNER
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.active-job-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    margin-bottom: 24px;
+    background: rgba(99, 102, 241, 0.06);
+    border: 1px solid rgba(99, 102, 241, 0.15);
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    backdrop-filter: blur(var(--glass-blur));
+}
+
+.active-job-banner__label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-tertiary);
+}
+
+.active-job-banner__title {
+    font-weight: 700;
+    color: var(--text-accent);
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   CONFIG PANEL
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.config-panel {
+    margin-bottom: 28px;
+    background: var(--bg-card);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    backdrop-filter: blur(var(--glass-blur));
+    overflow: hidden;
+    animation: fadeSlideUp 0.4s ease forwards;
+}
+
+.config-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    background: rgba(99, 102, 241, 0.06);
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.config-panel__title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.config-panel__close {
+    width: 32px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--glass-border);
+    border-radius: 50%;
+    color: var(--text-secondary);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.config-panel__close:hover {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: var(--accent-red);
+    color: var(--accent-red);
+}
+
+.config-panel__body {
+    padding: 24px;
+}
+
+/* Config Sections */
+.config-section {
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.config-section:last-of-type {
+    border-bottom: none;
+    margin-bottom: 16px;
+}
+
+.config-section__title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-accent);
+    margin-bottom: 14px;
+}
+
+/* Config Form Elements */
+.config-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.config-row--triple {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.config-field {
+    flex: 1;
+    min-width: 200px;
+}
+
+.config-field--full {
+    flex: 1 1 100%;
+}
+
+.config-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.config-hint {
+    font-weight: 400;
+    color: var(--text-tertiary);
+    font-size: 11px;
+}
+
+.config-input,
+.config-textarea {
+    width: 100%;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: var(--font);
+    font-size: 13px;
+    outline: none;
+    transition: all 0.3s;
+    resize: vertical;
+}
+
+.config-input:focus,
+.config-textarea:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.config-input::placeholder,
+.config-textarea::placeholder {
+    color: var(--text-tertiary);
+    font-size: 12px;
+}
+
+.config-input--small {
+    width: 100%;
+    max-width: 120px;
+}
+
+.config-range-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.config-range-sep {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    font-weight: 500;
+}
+
+/* Upload Area */
+.upload-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 2px dashed var(--glass-border);
+    border-radius: var(--radius-md);
+    transition: all 0.3s;
+}
+
+.upload-area:hover {
+    border-color: var(--accent-primary);
+    background: rgba(99, 102, 241, 0.04);
+}
+
+.upload-btn {
+    padding: 8px 18px;
+    background: rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    border-radius: var(--radius-sm);
+    color: var(--text-accent);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.upload-btn:hover {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: var(--accent-primary);
+}
+
+.upload-status {
+    font-size: 12px;
+    color: var(--text-tertiary);
+}
+
+/* Config Action Buttons */
+.config-actions {
+    display: flex;
+    gap: 12px;
+    padding-top: 8px;
+}
+
+.config-action-btn {
+    padding: 12px 28px;
+    border: none;
+    border-radius: var(--radius-md);
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    letter-spacing: 0.3px;
+}
+
+.config-action-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.config-action-btn--save {
+    background: rgba(16, 185, 129, 0.15);
+    color: #6ee7b7;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.config-action-btn--save:hover:not(:disabled) {
+    background: rgba(16, 185, 129, 0.25);
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+    transform: translateY(-1px);
+}
+
+.config-action-btn--run {
+    background: var(--gradient-primary);
+    color: white;
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.25);
+}
+
+.config-action-btn--run:hover:not(:disabled) {
+    box-shadow: 0 0 25px rgba(99, 102, 241, 0.4);
+    transform: translateY(-2px);
+}
+
+/* Pipeline Progress Bar */
+.pipeline-progress {
+    padding: 16px 24px;
+    background: rgba(99, 102, 241, 0.04);
+    border-top: 1px solid var(--glass-border);
+}
+
+.pipeline-progress__bar {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.pipeline-progress__fill {
+    height: 100%;
+    background: var(--gradient-primary);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+    width: 0%;
+}
+
+.pipeline-progress__text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* ── Config Panel Responsive ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .config-row--triple {
+        grid-template-columns: 1fr;
+    }
+    .config-range-group {
+        flex-wrap: wrap;
+    }
+    .config-input--small {
+        max-width: none;
+    }
+    .config-actions {
+        flex-direction: column;
+    }
+    .config-action-btn {
+        width: 100%;
+        text-align: center;
+    }
+}
+

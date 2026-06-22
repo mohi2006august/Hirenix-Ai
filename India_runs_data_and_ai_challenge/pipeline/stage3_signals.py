@@ -1,10 +1,14 @@
 from typing import List, Dict, Any
 
-def apply_signals_and_reasoning(candidates: List[Dict[Any, Any]]) -> List[Dict[Any, Any]]:
+def apply_signals_and_reasoning(candidates: List[Dict[Any, Any]], final_top_k: int = 100) -> List[Dict[Any, Any]]:
     """
     Applies behavioral multipliers to the semantic score.
     Generates deterministic reasoning strings.
-    Limits to exactly 100 final candidates.
+    Limits to exactly final_top_k candidates.
+    
+    Args:
+        candidates: List of candidate dicts from Stage 2 with '_semantic_score'.
+        final_top_k: Number of final ranked candidates to return.
     """
     for c in candidates:
         sem_score = c['_semantic_score']
@@ -39,19 +43,16 @@ def apply_signals_and_reasoning(candidates: List[Dict[Any, Any]]) -> List[Dict[A
         
     # Sort by final score descending, then candidate_id ascending
     candidates.sort(key=lambda x: (-x['final_score'], x['candidate_id']))
-    top_100 = candidates[:100]
+    top_n = candidates[:final_top_k]
     
     # Generate reasoning
-    for i, c in enumerate(top_100):
-        # We need score to be strictly non-increasing. 
-        # Floating point ties or strange cases shouldn't break the submission.
-        
-        yoe = c['profile'].get('years_of_experience', 0)
-        title = c['profile'].get('current_title', 'Engineer')
-        np_days = c['redrob_signals'].get('notice_period_days', 60)
+    for i, c in enumerate(top_n):
+        yoe = c.get('profile', {}).get('years_of_experience', 0)
+        title = c.get('profile', {}).get('current_title', 'Engineer')
+        np_days = c.get('redrob_signals', {}).get('notice_period_days', 60)
         
         skills = [s['name'] for s in c.get('skills', []) if s.get('proficiency') in ('advanced', 'expert')][:3]
-        skills_str = ", ".join(skills) if skills else "relevant ML skills"
+        skills_str = ", ".join(skills) if skills else "relevant skills"
         
         reasoning = f"Strong semantic fit ({title}) with {yoe} years experience. Possesses deep expertise in {skills_str}. "
         if np_days <= 30:
@@ -62,4 +63,4 @@ def apply_signals_and_reasoning(candidates: List[Dict[Any, Any]]) -> List[Dict[A
         c['reasoning'] = reasoning
         c['rank'] = i + 1
         
-    return top_100
+    return top_n

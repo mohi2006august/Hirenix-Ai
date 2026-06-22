@@ -1,28 +1,37 @@
 import numpy as np
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 
-def semantic_rank(candidates: List[Dict[Any, Any]], top_k: int = 150) -> List[Dict[Any, Any]]:
+# Default JD text used when no config is provided
+DEFAULT_JD_TEXT = (
+    "Senior AI Engineer with 5-9 years of experience. "
+    "Deep technical depth in modern ML systems: embeddings, retrieval, ranking, LLMs, fine-tuning. "
+    "Production experience with embeddings-based retrieval systems like sentence-transformers, BGE, E5. "
+    "Experience with vector databases such as Pinecone, Weaviate, Qdrant, Milvus, FAISS. "
+    "Hands-on experience with evaluation frameworks for ranking systems: NDCG, MRR, MAP, A/B testing. "
+    "Strong Python programming skills. Ability to build end-to-end ranking and recommendation systems."
+)
+
+def semantic_rank(candidates: List[Dict[Any, Any]], jd_text: Optional[str] = None, top_k: int = 150) -> List[Dict[Any, Any]]:
     """
     Takes the top candidates from Stage 1.
     Uses an extremely fast local transformer model to embed their career histories
     and calculates cosine similarity against the JD text.
     Returns the top candidates based on semantic fit.
+    
+    Args:
+        candidates: List of candidate dicts from Stage 1.
+        jd_text: The job description text to match against. Uses default if None.
+        top_k: Number of top candidates to return.
     """
     # Using a fast, lightweight model that fits easily in CPU memory
     model = SentenceTransformer('all-MiniLM-L6-v2')
     
-    # Core requirements extracted from the JD
-    jd_text = (
-        "Senior AI Engineer with 5-9 years of experience. "
-        "Deep technical depth in modern ML systems: embeddings, retrieval, ranking, LLMs, fine-tuning. "
-        "Production experience with embeddings-based retrieval systems like sentence-transformers, BGE, E5. "
-        "Experience with vector databases such as Pinecone, Weaviate, Qdrant, Milvus, FAISS. "
-        "Hands-on experience with evaluation frameworks for ranking systems: NDCG, MRR, MAP, A/B testing. "
-        "Strong Python programming skills. Ability to build end-to-end ranking and recommendation systems."
-    )
+    # Use provided JD text or fall back to default
+    if not jd_text or not jd_text.strip():
+        jd_text = DEFAULT_JD_TEXT
     
     print("Encoding JD...")
     jd_embedding = model.encode([jd_text])[0]
