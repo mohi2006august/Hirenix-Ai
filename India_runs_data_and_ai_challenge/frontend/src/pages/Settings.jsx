@@ -59,7 +59,7 @@ function Settings() {
   };
 
   return (
-    <div>
+    <div className="animate-stagger">
       <h1 className="page-title">Configuration</h1>
 
       <div className="glass-card" style={{ padding: '32px', marginBottom: '24px' }}>
@@ -88,7 +88,7 @@ function Settings() {
         </button>
 
         {status && status.status === 'running' && (
-          <div style={{ marginTop: '24px', padding: '16px', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '8px' }}>
+          <div style={{ marginTop: '24px', padding: '16px', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '8px', animation: 'fadeIn 0.3s ease-out' }}>
             <p style={{ fontWeight: '600', marginBottom: '8px' }}>Pipeline Progress: {status.stage}</p>
             <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{status.progress}</p>
           </div>
