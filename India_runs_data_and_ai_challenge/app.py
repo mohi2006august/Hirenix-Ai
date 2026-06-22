@@ -8,10 +8,15 @@ import json
 import os
 import sys
 import threading
+import time
 from collections import Counter, defaultdict
 from flask import Flask, jsonify, request, send_from_directory
+from flask_cors import CORS
 
+# --- Setup Paths ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# We will serve from frontend/dist if it exists, otherwise static (for backward compatibility)
+FRONTEND_DIST = os.path.join(BASE_DIR, 'frontend', 'dist')
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
 CONFIG_PATH = os.path.join(BASE_DIR, 'job_config.json')
 CANDIDATES_PATH = os.path.join(BASE_DIR, 'candidates.jsonl')
@@ -21,6 +26,7 @@ SUBMISSION_PATH = os.path.join(BASE_DIR, 'submission.csv')
 sys.path.append(BASE_DIR)
 
 app = Flask(__name__, static_folder=STATIC_DIR)
+CORS(app)
 
 # ── Global data stores (loaded once at startup, reloaded on pipeline re-run) ──
 RANKED_CANDIDATES = []      # Full candidate dicts, merged with ranking data
